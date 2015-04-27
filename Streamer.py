@@ -16,7 +16,7 @@ class Streamer(object):
     def conectarDNS(self):
         con_DNS = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-        con_DNS.sendto("streamer_name>>"+self.name, self.dns)
+        con_DNS.sendto(self.name, self.dns)
         print "streamer_name>>"+self.name, self.dns
 
     #envia video para Client
@@ -24,11 +24,20 @@ class Streamer(object):
         pass
 
     def listenViewer(self):
-        pass
+        #abre server
+        self.conexao = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+        self.endereco_dns = ('172.16.1.59',9000)
+        self.conexao.bind(self.endereco_dns)
+        #conecta viewer
+        while True:
+        # Wait for a connection
+             print >>sys.stderr, 'waiting for a connection'
+             data, client_address = self.conexao.recvfrom(1024)
+             print "conectou", data, client_address
 
 
-dns = ('192.168.208.60', 10000)
-eu = Streamer("Brvno", dns)
+dns = ('172.16.1.59', 10000)
+eu = Streamer("FishFIshg", dns)
 eu.conectarDNS()
 
 
