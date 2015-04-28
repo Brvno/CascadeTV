@@ -1,47 +1,29 @@
-# coding=utf-8
-__author__ = 'Fischer'
-
 import socket
-import random
+import thread
+
+DNS_addr = ('192.168.208.25', 23491)
+
+#requistar Stream
+DNSSock = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+print 'Conectou no DNS: '
+DNSSock.sendto('viewer', DNS_addr)
+stream_list = DNSSock.recvfrom(2048)
+print stream_list
+
+#TODO: Escolher canal da lista e retirar a tupla IP,Port e colocar na stream_addr
+stream_addr = ('IP', 'port')
+
+DNSSock.close()
+
+strSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+strSock.sendto("hey", stream_addr)
 
 
-#Classe para criação de Streamer nome do canal
-#@parameters: name = nome do canal
-class Viewer(object):
-    def __init__(self, name, dns):
-        self.name = name
-        self.dns = dns
-
-        #conecta DNS
-        con_DNS = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        con_DNS.sendto("Viewer_name>>"+self.name, self.dns)
-        print "Viewer_name>>"+self.name, self.dns
-        server_list, data_address = con_DNS.recvfrom(1024)
-        print server_list
-
-        #stream escolhida
-        self.stream_name = random.choice(server_list)
-        self.stream_address = server_list[self.stream_name]
+#receive_video
 
 
-        #connect stream
-        self.connection_stream = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.connection_stream.sendto(self.name, self.stream_address)
-
-        print("Watching: ", self.stream_name)
-
-        while True:
-            self.stream = self.connection_stream.recvfrom(1024)
-            print self.stream
+while True:
+    video = strSock.rcvfrom(1024)
 
 
-
-
-
-
-
-
-
-
-
-
+        
