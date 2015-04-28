@@ -1,40 +1,26 @@
 import socket
-import sys
-import thread
 
-dns_address = ('172.16.1.59', 10000)
+# UDP server
+UDPSock = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+UDPSock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
+# Listen on port 23456
+# (to all IP addresses on this system)
+listen_addr = ("",23491)
+UDPSock.bind(listen_addr)
 
-class Dns(object):
+stream_lists = {}
 
-    def __init__(self):
-        self.server_list = {}
-        self.connection = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.connection.bind(dns_address)
-
-        thread.start_new_thread(self.connect_viewer())
-        thread.start_new_thread(self.connect_streamer())
-
-    # search into dns list
-    def search_stream(self, nome):
-        if nome in self.server_list:
-            return self.server_list[nome]
-        else:
-            return "not found"
-
-    def connect_viewer(self):
-        # Wait for a connection
-        connection = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        while True:
-            print >>sys.stderr, 'waiting for a connection'
-            data, client_address = connection.recvfrom(1024)
-            print "Online:  "+"Viewer_name>>""+", data, client_address
-            connection.sendto(self.server_list, client_address)
-
-    def connect_streamer(self):
-        while True:
-        # Wait for a connection
-            print >>sys.stderr, 'waiting for a connection'
-            data, client_address = self.connection.recvfrom(1024)
-            print "Online: streamer_name>>", "+", data, client_address
-            self.server_list[data] = client_address
+# Report on all data packets received
+# data -> <tipo>:<nome>
+print 'Server online'
+while True:
+        data, addr = UDPSock.recvfrom(1024)
+        string = data.split(':')
+        print data, addr
+        print stream_lists
+        if string[0] == 'stream':
+            stream_lists[string[1]] = addr
+        elif string[0] == 'viewer':
+            UDPSock.sendto(str(stream_lists), addr)
+            
