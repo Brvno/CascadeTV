@@ -54,14 +54,5 @@ class Streamer(object):
              self.viewers_list.append(client_address)
 
 
-dns = (IP_DNS, 10000)
-eu = Streamer("FishFIshg", dns)
-
-
-
-
-
-
-
 
 

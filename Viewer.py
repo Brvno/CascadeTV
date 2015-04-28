@@ -35,9 +35,7 @@ class Viewer(object):
             print self.stream
 
 
-dns = ('172.16.1.59', 10000)
-eu = Viewer("Fish", dns)
-eu.conectarDNS()
+
 
 
 
