@@ -1,6 +1,3 @@
-
-__author__ = 'Brvno'
-
 import socket
 import threading
 
@@ -19,7 +16,7 @@ def listen_viewers():
     viewSock.bind(listen_addr)
     
     while True:
-        data, addr = viewSock.recvfrom(10240)
+        data, addr = viewSock.recvfrom(1024)
         print "Novo Viewer: ", addr
         viewers.append(addr)
         
