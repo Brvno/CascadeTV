@@ -1,8 +1,8 @@
-__author__ = 'nautec'
 # coding=utf-8
 __author__ = 'Fischer'
 
 import socket
+import random
 
 
 #Classe para criação de Streamer nome do canal
@@ -12,19 +12,27 @@ class Viewer(object):
         self.name = name
         self.dns = dns
 
-
-    #conecta DNS
-    def conectarDNS(self):
+        #conecta DNS
         con_DNS = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         con_DNS.sendto("Viewer_name>>"+self.name, self.dns)
         print "Viewer_name>>"+self.name, self.dns
-        data,data_address = con_DNS.recvfrom(1024)
-        print data,data_address
+        server_list, data_address = con_DNS.recvfrom(1024)
+        print server_list
 
-    def requisita_stream(self, name):
-        con_DNS.sendto("stream requirida>",self)
-    def conectar_stream(self):
-        pass
+        #stream escolhida
+        self.stream_name = random.choice(server_list)
+        self.stream_address = server_list[self.stream_name]
+
+
+        #connect stream
+        self.connection_stream = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.connection_stream.sendto(self.name, self.stream_address)
+
+        print("Watching: ", self.stream_name)
+
+        while True:
+            self.stream = self.connection_stream.recvfrom(1024)
+            print self.stream
 
 
 dns = ('172.16.1.59', 10000)
