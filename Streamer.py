@@ -1,58 +1,52 @@
-# coding=utf-8
+
 __author__ = 'Brvno'
 
 import socket
-import sys
-import thread
+import threading
 
-IP_DNS = '1.1.1'
+DNS_IP = '192.168.208.25'
 
-# Classe para criacao de Streamer nome do canal
-# @parameters: name = nome do canal
-class Streamer(object):
-    def __init__(self, name, dns):
-        self.name = name
-        self.dns = dns
-        self.viewers_list = {}
+# viewer list
+viewers_list = []
 
-        self.connect_dns()
+# Viewers server
+viewSock = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+viewSock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-        video = "Olha o Video"
+def listen_viewers():
 
-        #Espera viewers enquanto envia o video para os ja conectados
-        thread.start_new_thread(self.listen_viewer())
-        thread.start_new_thread(self.send_video(video))
+    listen_addr = ("", 9876)    
+    viewSock.bind(listen_addr)
+    
+    while True:
+        data, addr = viewSock.recvfrom(10240)
+        print "Novo Viewer: ", addr
+        viewers.append(addr)
+        
 
+def send_dns(name):
+    # DNS client socket
+    DNSSock = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+    dns_addr = (DNS_IP,23491)
+    print "Conectou no DNS"
+    DNSSock.sendto("stream:"+name, dns_addr)
+    DNSSock.close()
 
-    #conecta DNS
-    def connect_dns(self):
-        con_DNS = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
-        con_DNS.sendto(self.name, self.dns)
-        print "streamer_name>>"+self.name, self.dns
-        con_DNS.close()
-
-    #envia video para Client
-    def send_video(self, video):
-        while True:
-            connection_viewers = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            for viewer in self.viewers_list:
-                connection_viewers.sendto(video, viewer)
-
-
-    def listen_viewer(self):
-        #abre server
-        connection = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
-        #connection.bind(self.dns)
-
-        #conecta viewer
-        while True:
-        # Wait for a connection
-             print >>sys.stderr, 'waiting for a connection'
-             data, client_address = connection.recvfrom(1024)
-             print "Connected", data, client_address
-             self.viewers_list.append(client_address)
+def send_video(video):
+    while True:
+        for viewer in viewers_list:
+            print 'Transmitindo para: ', viewer
+            viewSock.sendto(video, viewer)
+        
 
 
+print 'Stream online'
+# Diz que esta online para o DNS
+send_dns("Brvno")
 
+# Esperar viewers e transmitir video
+thread_listen = threading.Thread(target=listen_viewers)
+thread_transmit = threading.Thread(target=send_video, args=("Yaargh",))
 
+thread_listen.start()
+thread_transmit.start()
