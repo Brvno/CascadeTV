@@ -4,9 +4,9 @@ import socket
 UDPSock = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
 UDPSock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-# Listen on port 23456
+# Listen on port 10000
 # (to all IP addresses on this system)
-listen_addr = ("",23491)
+listen_addr = ("",10000)
 UDPSock.bind(listen_addr)
 
 stream_lists = {}
@@ -17,6 +17,7 @@ print 'Server online'
 while True:
         data, addr = UDPSock.recvfrom(1024)
         string = data.split(':')
+        print string
         print data, addr
         print stream_lists
         if string[0] == 'stream':
