@@ -1,56 +1,72 @@
 import socket
-import threading
+import thread
 import time
-DNS_IP = '192.168.1.13'
 
-# viewer list
-viewers_list = []
+DNS_addr = ('192.168.1.45', 10000)
 
-# Viewers server
-viewSock = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
-viewSock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-def listen_viewers():
-
-    listen_addr = ("", 9000) 
-    print listen_addr   
-    viewSock.bind(listen_addr)
+class Viewer(object):
+    def __init__(self, stream_name):
+        self.stream_name = stream_name
+        self.strSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        
+    def __init__(self):
+        self.stream_name = False
+        self.strSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     
-    while True:
-        data, addr = viewSock.recvfrom(1024)
-        print "Novo Viewer: ", addr
-        viewers_list.append(addr)
+    #extrai ip de uma lista de dado um nome
+    def retiraIP(self, lista, nome):
+        aux = lista.split(',')
+        pos = -1
+        i = 0
+        for k in aux:
+            pos = k.find(nome)
+            i +=1
+            if(pos != -1):
+	            break
+
+        ip = aux[i-1].split('(')
         
-#avisa o dns que o streamer esta ativo
-def send_dns(name):
-    # DNS client socket
-    DNSSock = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
-    dns_addr = (DNS_IP,10000)
-    print "Conectou no DNS"
-    DNSSock.sendto("stream:"+name, dns_addr)
-    DNSSock.close()
+        return ip[1].replace("'", "")
+        
+    
+    #iniciar o o viewer
+    def start(self):
+        #requistar Stream
+        DNSSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        print 'Conectou no DNS'
+        DNSSock.sendto('viewer', DNS_addr)
+        stream_list, lixo = DNSSock.recvfrom(2048)
+        print 'Lista de Streamers'
+        print stream_list
+        if self.stream_name == False:
+            self.stream_name = raw_input("Qual o nome da stream? ")
 
-def send_video(video):
-    i=1;
+        ## Pegando IP do streamer escolhido
+        stream_IP = self.retiraIP(stream_list,self.stream_name)
+        stream_addr = (stream_IP, 9000)
+        print stream_addr
+
+        DNSSock.close()
+        
+        ##Avisando ao streamer que esta vivo 
+        self.strSock.sendto("hey", stream_addr)
+    
+    ## para receber dados do server
+    def receive(self):
+        data = self.strSock.recvfrom(1024)
+        return data[0]
+
+
+if __name__ == "__main__":
+    eu = Viewer()
+    eu.start()
+    i = 0
     while True:
-
-        for viewer in viewers_list:
-            print 'Transmitindo para: ', viewer,time.ctime()
-            i+=1
-            time.sleep(1)
-            viewSock.sendto(video, viewer)
+        video = eu.receive()
+        print i, ": " ,video, time.ctime()
+        i += 1
+        time.sleep(1)
         
 
-
-
-stream_name = raw_input("Nome da Stream: ")
-print 'Stream online ', stream_name
-# Diz que esta online para o DNS
-send_dns(stream_name )
-
-# Esperar viewers e transmitir video
-thread_listen = threading.Thread(target=listen_viewers)
-thread_transmit = threading.Thread(target=send_video, args=(stream_name,))
-
-thread_listen.start()
-thread_transmit.start()
+            
