@@ -1,54 +1,54 @@
 import socket
 import thread
+import time
 
-DNS_addr = ('192.168.201.33', 10000)
+DNS_addr = ('192.168.1.13', 10000)
+
+def retiraIP(lista, nome):
+    aux = lista.split(',')
+    pos = -1
+    i = 0
+    for k in aux:
+        pos = k.find(nome)
+        i +=1
+        if(pos != -1):
+	        break
+
+    ip = aux[i-1].split('(')
+    
+    return ip[1].replace("'", "")
+
+
 
 #requistar Stream
 DNSSock = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
-print 'Conectou no DNS: '
+print 'Conectou no DNS'
 DNSSock.sendto('viewer', DNS_addr)
-stream_list = DNSSock.recvfrom(2048)
+stream_list, lixo = DNSSock.recvfrom(2048)
+print 'Lista de Streamers'
 print stream_list
-print "escolha a stream (0,1,2,3...)"
+stream_nome = raw_input("Qual o nome da stream? ")
 
-#retira o ip e a porta da string
-string =  str(stream_list[0])
-string = string.split(',')
-print
-print string[1]
-print
-string2 = string[1]
-print string2.split(')')
-print
-porta = string2.split(')')
-porta = porta[0]
-print porta
-print
-print string [0]
-string3 = string[0].split('(')
-print
-print string3[1]
-print
-IP =string3[1]
-IP = IP[1:15]
-print IP
-print
-por = int (porta)
-#TODO: Escolher canal da lista e retirar a tupla IP,Port e colocar na stream_addr
-stream_addr = (IP,9000)
+## Pegando IP do streamer escolhido
+stream_IP = retiraIP(stream_list, stream_nome)
+stream_addr = (stream_IP, 9000)
+
 print stream_addr
-print
+
 DNSSock.close()
 
+##Avisando ao streamer que esta vivo 
 strSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 strSock.sendto("hey", stream_addr)
 
 
 #receive_video
-
-
+i = 0
 while True:
     video = strSock.recvfrom(1024)
-    print video[0]
+    print i, ": " ,video[0], time.ctime()
+    i += 1
+    time.sleep(1)
+    
 
         
