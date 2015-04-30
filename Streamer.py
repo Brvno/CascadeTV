@@ -1,7 +1,7 @@
 import socket
 import threading
 
-DNS_IP = '192.168.208.25'
+DNS_IP = '192.168.201.33'
 
 # viewer list
 viewers_list = []
@@ -12,19 +12,20 @@ viewSock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
 def listen_viewers():
 
-    listen_addr = ("", 9876)    
+    listen_addr = ("", 9000) 
+    print listen_addr   
     viewSock.bind(listen_addr)
     
     while True:
         data, addr = viewSock.recvfrom(1024)
         print "Novo Viewer: ", addr
-        viewers.append(addr)
+        viewers_list.append(addr)
         
 
 def send_dns(name):
     # DNS client socket
     DNSSock = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
-    dns_addr = (DNS_IP,23491)
+    dns_addr = (DNS_IP,10000)
     print "Conectou no DNS"
     DNSSock.sendto("stream:"+name, dns_addr)
     DNSSock.close()
