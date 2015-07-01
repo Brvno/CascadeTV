@@ -1,7 +1,7 @@
 import socket
 import time
 import threading
-import sys
+import sys, getopt
 
 ## from Dns import DnsServer
 
@@ -48,18 +48,15 @@ class DnsServer(object):
     # Comeca DNS Server
     def start(self):
         print "Loading..."
-        #Thread para verificar requisicao Update
-        thread_update = threading.Thread(target=self.update_replica)
-        thread_update.start()
                 
         if(self.isMaster):
             print "Cascade TV Master DNS Server running..."
             #Abre Threads do Master
-            thread_replica = threading.Thread(target=self.adiciona_replica)
+            thread_master = threading.Thread(target=self.recvMaster)
             thread_consistencia = threading.Thread(target=self.consistencia)
             thread_funcionalidade = threading.Thread(target=self.funcionalidade)
             
-            thread_replica.start()
+            thread_master.start()
             thread_consistencia.start()
             #thread_funcionalidade.start()
 
@@ -83,7 +80,7 @@ class DnsServer(object):
                     print "Conectou no Master DNS ", self.master_addr
                     print "====", msg, lixo 
                     self.dns_id = msg.split(":")[1]
-                    i = 5
+                    break
                 except:       
                     print "Tempo esgotado"
              
@@ -126,18 +123,13 @@ class DnsServer(object):
                 self.eleicao()     
     '''
     #Thread esperando replicas
-    def adiciona_replica(self):
-        while True:
-            try:
-                data, addr = self.internSock.recvfrom(1024)
-                print ("Replica conectada", addr)
-                if str(data) == 'Replic':
-                    self.internSock.sendto("ID:"+str(len(self.dns_list)), addr)
-                    self.dns_list.append(addr)
-                    self.leasing = True
-            except:
-                print ""
-                     
+    def adiciona_replica(self, addr):        
+        if not addr in self.dns_list:
+            print ("Replica conectada", addr)
+            self.internSock.sendto("ID:"+str(len(self.dns_list)), addr)
+            self.dns_list.append(addr)
+            self.leasing = True
+                         
     #Thread da consistencia. Onde fica atualizando os dados das replicas
     def consistencia(self):
         while True:
@@ -149,34 +141,40 @@ class DnsServer(object):
                 self.leasing = False
             #Slaves consistencia
             elif not self.isMaster:
-                #Se passar 30s sem atualizacoes, pede o Master
+                #Se passar 10s sem atualizacoes, pede o Master
                 self.internSock.settimeout(10.0)
                 try:
                     data, a = self.internSock.recvfrom(2048)
-                    self.dns_list = self.convertData2List(data)
 
-                    data, a = self.internSock.recvfrom(2048)
-                    self.stream_list = self.convertData2List(data)                    
+                    self.dns_list = self.convertData2List(data)
 
                     print "==== DNS LIST ==="
                     for i in self.dns_list:
                         print i
+
+                    data, a = self.internSock.recvfrom(2048)
+                    self.stream_list = self.convertData2List(data)                    
+
                 except:
                     print "Requisitando Update do Master"
                     self.internSock.sendto("Update", self.master_addr)
               
                 
-    #Thread para receber update, caso timeout
-    def update_replica(self):
+    #Thread do Master para receber mensagens e trata-las
+    def recvMaster(self):
         while True:
             try:
                 data, rep = self.internSock.recvfrom(1024)
                 if data == 'Update':
+                    print "Requisitando Update", rep
                     self.internSock.sendto(str(self.dns_list), rep)
                     self.internSock.sendto(str(self.stream_list), rep)
                 if data == 'Eleicao':
+                    print "Requisitando Eleicao", rep
                     self.eleicao()
                     self.internSock.sendto("sou maior", rep)
+                if data == 'Replic':
+                    self.adiciona_replica(rep)
             except:
                 print ""
            
@@ -252,11 +250,29 @@ class DnsServer(object):
     #     
  
 if __name__ == "__main__":
-
-    if(len(sys.argv)):
-        Casc = DnsServer(str(sys.argv[1]))
-    else:
-        Casc = DnsServer()
-
-    Casc.start()
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], "h:m", ["help", "master="])
+    except getopt.GetoptError as err:
+        # print help information and exit:
+        print str(err) # will print something like "option -a not recognized"
+        print "Criando DNS Master: dnsServer.py -m <IPv4>"
+        print "Criando DNS Slave: dnsServer.py"
+        sys.exit(2)
+    
+    for o, a in opts:
+        if o == "-v":
+            verbose = True
+        elif o in ("-h", "--help"):
+            print "Criando DNS Master: dnsServer.py -m <IPv4>"
+            print "Criando DNS Slave: dnsServer.py"
+            sys.exit()
+        elif o in ("-m", "--master"):
+            cascade = DnsServer(args)
+        else:
+            assert False, "unhandled option"
+    
+    if not opts:
+        cascade = DnsServer()
+        
+    cascade.start()
 
