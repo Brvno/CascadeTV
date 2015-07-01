@@ -1,24 +1,109 @@
 import socket
+import time
+import threading
+import sys
+
+## from Dns import DnsServer
+
+# Constantes
+REPLICA_DNS_PORT = 13000 
+DNS_PORT = 10000
+MAX_ID = 666
 
 class DnsServer(object):
-    def __init__(self):
-        # UDP server
-        self.UDPSock = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)    
-        self.UDPSock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        # Listen on port 10000
-        # (to all IP addresses on this system)
-        self.listen_addr = ("",10000)
-        self.stream_lists = {}
+    #@args: IP do DNS Lider
+    def __init__(self, master_IP = 0):
+        print "Cascade TV DNS Server instanciado"
+        
+        self.listen_addr = ("", DNS_PORT)
+        self.replica_addr = ("", REPLICA_DNS_PORT)
+        self.stream_list = []
+        self.dns_list = []
+        self.dns_id = MAX_ID
+        
+        #Socket para funcionalidades do DNS
+        self.dnsSock = socket.socket(socket.AF_INET,socket.SOCK_DGRAM) 
+        self.dnsSock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  
+        
+        #Socket responsavel para administracao interna. Como Replicacao e Consistencia
+        self.internSock = socket.socket(socket.AF_INET,socket.SOCK_DGRAM) 
+        self.internSock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  
+        
+        #Bindings
+        self.dnsSock.bind(self.listen_addr)
+        self.internSock.bind(self.replica_addr)
+              
+        #Variavel de controle das atualizacoes
+        self.leasing = True
+        
+        #Verifica lider
+        if(master_IP == 0):
+            self.master_addr = ('localhost', REPLICA_DNS_PORT)
+            self.isMaster = True
+        else:
+            self.master_addr = (master_IP, REPLICA_DNS_PORT)
+            self.isMaster = False
+             
 
+    # Comeca DNS Server
+    def start(self):
+        print "Loading..."
+        #Thread para verificar requisicao Update
+        thread_update = threading.Thread(target=self.update_replica)
+        thread_update.start()
+                
+        if(self.isMaster):
+            print "Cascade TV Master DNS Server running..."
+            #Abre Threads do Master
+            thread_replica = threading.Thread(target=self.adiciona_replica)
+            thread_consistencia = threading.Thread(target=self.consistencia)
+            thread_funcionalidade = threading.Thread(target=self.funcionalidade)
+            
+            thread_replica.start()
+            thread_consistencia.start()
+            #thread_funcionalidade.start()
 
+            while True:
+                time.sleep(6)
+                print "==== DNS LIST ==="
+                for i in self.dns_list:
+                    print i
+            
+        else:
+            #Avisa o Master que virou um slave. Recebe Seu ID como retorno
+            for i in range(1,4):   
+                print "Tentando Conexao com o Master..."
+
+                self.internSock.sendto(str('Replic'), self.master_addr)
+
+                print "Esperando resposta do Master"
+                self.internSock.settimeout(3.0)
+                try:
+                    msg, lixo = self.internSock.recvfrom(2048)
+                    print "Conectou no Master DNS ", self.master_addr
+                    print "====", msg, lixo 
+                    self.dns_id = msg.split(":")[1]
+                    i = 5
+                except:       
+                    print "Tempo esgotado"
+             
+             #Abre Threads do Slave
+            thread_eleicao = threading.Thread(target=self.aguarda_eleicao)
+            thread_consistencia = threading.Thread(target=self.consistencia)
+            #thread_eleicao.start()
+            thread_consistencia.start()
+
+                
     #envia a lista das streams para os viewers
     def send_list(self, addr):
-        self.selfUDPSock.sendto(str(self.stream_lists), addr)
-
-    #comeca DNS Server
-    def start(self):
-        self.UDPSock.bind(self.listen_addr)
+        self.dnsSock.sendto(str(self.stream_list), addr)
+      
+    #faz o controle das conexoes dos viewers e streamers    
+    def funcionalidade(self):
+        #TODO ARRUMAR 
+        ''''
         while True:
+            #TODO deve-se criar um novo parametro booleano,se streamer e premium ou nao
             data, addr = self.UDPSock.recvfrom(1024)
             string = data.split(':')
             print string
@@ -30,19 +115,148 @@ class DnsServer(object):
 
             #Se recebeu uma mensagem de uma stream,adiciona a stream na lista de todas as stream
             if string[0] == 'stream':
-                self.stream_lists[string[1]] = addr
+                self.stream_list[string[1]] = addr
             #se recebeu uma mensagem de um viewer ele envia de volta uma lista com todas as streams e o ip dos streamers
+            
             elif string[0] == 'viewer':
-                self.send_list(addr) 
+                self.send_list(addr)
+            #TODO alterar isto para consistencia 
+            elif string[0] == 'eleicao':
+                self.UDPSock.sendto('sou maior', addr )
+                self.eleicao()     
+    '''
+    #Thread esperando replicas
+    def adiciona_replica(self):
+        while True:
+            try:
+                data, addr = self.internSock.recvfrom(1024)
+                print ("Replica conectada", addr)
+                if str(data) == 'Replic':
+                    self.internSock.sendto("ID:"+str(len(self.dns_list)), addr)
+                    self.dns_list.append(addr)
+                    self.leasing = True
+            except:
+                print ""
+                     
+    #Thread da consistencia. Onde fica atualizando os dados das replicas
+    def consistencia(self):
+        while True:
+            if self.isMaster and self.leasing:
+                #Enviando dados para as Replicas
+                for rep_addr in self.dns_list:
+                    self.internSock.sendto(str(self.dns_list), rep_addr)
+                    self.internSock.sendto(str(self.stream_list), rep_addr)
+                self.leasing = False
+            #Slaves consistencia
+            elif not self.isMaster:
+                #Se passar 30s sem atualizacoes, pede o Master
+                self.internSock.settimeout(10.0)
+                try:
+                    data, a = self.internSock.recvfrom(2048)
+                    self.dns_list = self.convertData2List(data)
+
+                    data, a = self.internSock.recvfrom(2048)
+                    self.stream_list = self.convertData2List(data)                    
+
+                    print "==== DNS LIST ==="
+                    for i in self.dns_list:
+                        print i
+                except:
+                    print "Requisitando Update do Master"
+                    self.internSock.sendto("Update", self.master_addr)
+              
+                
+    #Thread para receber update, caso timeout
+    def update_replica(self):
+        while True:
+            try:
+                data, rep = self.internSock.recvfrom(1024)
+                if data == 'Update':
+                    self.internSock.sendto(str(self.dns_list), rep)
+                    self.internSock.sendto(str(self.stream_list), rep)
+                if data == 'Eleicao':
+                    self.eleicao()
+                    self.internSock.sendto("sou maior", rep)
+            except:
+                print ""
+           
+                
+    def eleicao(self):
+        for i in range(0, len(self.dns_list) ):
+            dns = i
+            #Envia para os maiores ID
+            if(dns < self.dns_id):
+                 self.internSock.sendto('Eleicao', addr)
+
+        #thread fica esperando o tempo acabar                    
+        self.internSock.settimeout(4.0)               
+        try:
+            data, addr  = self.internSock.recvfrom(1024)
+            print data, addr
+
+            string = data.split(':')     
+            if( string[0] == 'sou maior'):
+                data, addr  = self.internSock.recvfrom(1024)
+                if(data == 'novo_lider'):  
+                    self.master_addr = addr
+        except:              
+            #Ganho a eleicao
+            self.isMaster = True
+            #Aviso que ganhei para todos
+            for dns in dnslist:
+               self.internSock.sendto('novo_lider', dns)  
+           
+    def aguarda_eleicao(self):
+        eleicao = raw_input() 
+        if(eleicao =='ELEICAO'):
+            self.eleicao()
+
+    #Funcao para converter listas de tuplas que foram recebidas como strings
+    def convertData2List(self, data):
+        data = data.replace("[","")
+        data = data.replace("]","")
+        data = data.replace("),",")|")
+        data = data.split('|')
+
+        lis = []
+        for element in data:
+            lis.append(element)
+
+        return lis
             
-    
+     #TODO algoritmo eleicao
+     #eleicao vai ser uma thread que vai ficar rodando em todos os dns esperando a string "eleicao" ser digitada no teclado
+    #def Eleicao(self)
+        #detectou que eleicao foi escrito
+        #envia eleicao e seu id para todos os dns com id maior que o seu
+        #aguarda a resposta de confirmacao de todos os dns com id maior
+        #se nao recebeu nenhuma resposta de confirmacao
+        #     envia lider e seu id para todos os computadores
+        #senao
+        #     aguarda mensagem de novo lider
+    #TODO manutencao do server premium
+    #server premium deve contantemente enviar mensagens sobre viewers que conectaram nele e viewers que desconectaram dele
+    #para garantir a exclusao mutua ja que o numero de viewers no server premium e limitado
+    #def Controla_server_premium()
+    #   thread recebe mensagens do server premium
+    #   se a mensagem e "viewer desconectou"
+    #       qtd_viewers--
+    #       se a qtd_viewers == qtd_maxima-1
+    #       ativa mutex travando lista de streams
+    #       altera ip da stream na lista de streams,do ip do streamer para o ip do server premium      
+    #   se a mensagem e "viewer conectou"
+    #       qtd_viewers++
+    #       se a qtd_viewers == qtd_maxima
+    #           ativa mutex travando lista de streams
+    #           altera o ip da stream na lista de streams, do ip do server premium para o ip do streamer
+    #     
+ 
+if __name__ == "__main__":
 
+    if(len(sys.argv)):
+        Casc = DnsServer(str(sys.argv[1]))
+    else:
+        Casc = DnsServer()
 
+    Casc.start()
 
-print 'CascadeTV DNS online'
-
-CascadeTvDns = DnsServer()
-CascadeTvDns.start()
-
-    
-            
