@@ -133,6 +133,7 @@ class DnsServer(object):
             #Se recebeu uma mensagem de uma stream,adiciona a stream na lista de todas as stream
             if string[0] == 'stream':
                 self.stream_list[string[1]] = addr
+                self.leasing = True
             #se recebeu uma mensagem de um viewer ele envia de volta uma lista com todas as streams e o ip dos streamers
             
             elif string[0] == 'viewer':
@@ -156,10 +157,12 @@ class DnsServer(object):
             if self.isMaster and self.leasing:
                 #Enviando dados para as Replicas
                 for rep_addr in self.dns_list:
-                    print "Atualizando listas do", rep_addr[0]
-                    self.internSock.sendto(str(self.dns_list), rep_addr)
+					print "Atualizando listas do", rep_addr[0]
+					msg = str(self.stream_list)
+					self.internSock.sendto(str(self.dns_list), rep_addr)
+					self.internSock.sendto(msg, rep_addr)
                     #time.sleep(3)
-                #    updateSock.sendto(str(self.stream_list), rep_addr)
+
                 self.leasing = False
 
                 
@@ -179,8 +182,9 @@ class DnsServer(object):
                     print "================="
                     print ""
 
-                    #data, a = updateSock.recvfrom(2048)
-                    #self.stream_list = self.convertData2List(data)
+                    data, a = updateSock.recvfrom(2048)
+					#TODO: Converter data para stream_list
+                    print data
 
                 except:
                     print "Requisitando Update do Master"
