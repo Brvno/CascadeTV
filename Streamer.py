@@ -1,8 +1,10 @@
 import socket
 import threading
 import time
-DNS_IP = '192.168.1.13'
 
+DNS_IP = '192.168.1.72'
+DNS_PORT = 10000
+VIEWER_PORT = 9000 
 
 class Streamer(object):
         def __init__(self, name):
@@ -16,7 +18,7 @@ class Streamer(object):
 
         def listen_viewers(self):
 
-            listen_addr = ("", 9000) 
+            listen_addr = ("", VIEWER_PORT) 
             print listen_addr   
             self.viewSock.bind(listen_addr)
             
@@ -29,7 +31,7 @@ class Streamer(object):
         def send_dns(self, name):
             # DNS client socket
             DNSSock = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
-            dns_addr = (DNS_IP,10000)
+            dns_addr = (DNS_IP, DNS_PORT)
             print "Conectou no DNS"
             DNSSock.sendto("stream:"+name, dns_addr)
             DNSSock.close()
