@@ -12,6 +12,8 @@ MSG_PORT = 13013
 DNS_PORT = 10000
 MAX_ID = 666
 
+#TODO: Adicionar DNS Master na lista
+
 class DnsServer(object):
     #@args: IP do DNS Lider
     def __init__(self, master_IP = 0):
@@ -19,7 +21,7 @@ class DnsServer(object):
         
         self.listen_addr = ("", DNS_PORT)
         self.replica_addr = ("", REPLICA_DNS_PORT)
-        self.stream_list = []
+        self.stream_list = {}
         self.dns_list = []
         self.dns_id = MAX_ID
         
@@ -34,12 +36,14 @@ class DnsServer(object):
         #Socket responsavel para administracao interna. Como Replicacao e Consistencia
         self.msgSock = socket.socket(socket.AF_INET,socket.SOCK_DGRAM) 
         self.msgSock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
-        #Bindings
+        
+	    #Bindings
         self.dnsSock.bind(self.listen_addr)
         self.internSock.bind(self.replica_addr)
         self.msgSock.bind(("", MSG_PORT))
 
+	
+		
         #Variavel de controle das atualizacoes
         self.leasing = False
         
@@ -65,7 +69,7 @@ class DnsServer(object):
             
             thread_master.start()
             thread_consistencia.start()
-            #thread_funcionalidade.start()
+            thread_funcionalidade.start()
 
             while True:
                 time.sleep(10)
@@ -109,20 +113,20 @@ class DnsServer(object):
                 
     #envia a lista das streams para os viewers
     def send_list(self, addr):
+    	print "viewer conectou e enviou a lista de streamers pra ele"
         self.dnsSock.sendto(str(self.stream_list), addr)
       
     #faz o controle das conexoes dos viewers e streamers    
     def funcionalidade(self):
         #TODO ARRUMAR 
-        ''''
+        
         while True:
             #TODO deve-se criar um novo parametro booleano,se streamer e premium ou nao
-            data, addr = self.UDPSock.recvfrom(1024)
+            data, addr = self.dnsSock.recvfrom(1024)
             string = data.split(':')
             print string
             print data, addr
-            print " --Stream List-- "
-            print self.stream_lists
+            
             # Report on all data packets received
             # data -> <tipo>:<nome>
 
@@ -133,11 +137,11 @@ class DnsServer(object):
             
             elif string[0] == 'viewer':
                 self.send_list(addr)
-            #TODO alterar isto para consistencia 
-            elif string[0] == 'eleicao':
-                self.UDPSock.sendto('sou maior', addr )
-                self.eleicao()     
-    '''
+                
+            print " --Stream List-- "
+            print self.stream_list
+   
+    
     #Thread esperando replicas
     def adiciona_replica(self, addr):        
         if not addr in self.dns_list:
