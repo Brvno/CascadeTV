@@ -8,7 +8,7 @@ import os
 
 # Constantes
 REPLICA_DNS_PORT = 13005
-UPDATE_PORT = 13013
+MSG_PORT = 13013
 DNS_PORT = 10000
 MAX_ID = 666
 
@@ -31,9 +31,14 @@ class DnsServer(object):
         self.internSock = socket.socket(socket.AF_INET,socket.SOCK_DGRAM) 
         self.internSock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
+        #Socket responsavel para administracao interna. Como Replicacao e Consistencia
+        self.msgSock = socket.socket(socket.AF_INET,socket.SOCK_DGRAM) 
+        self.msgSock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
         #Bindings
         self.dnsSock.bind(self.listen_addr)
         self.internSock.bind(self.replica_addr)
+        self.msgSock.bind(("", MSG_PORT))
 
         #Variavel de controle das atualizacoes
         self.leasing = False
@@ -91,12 +96,12 @@ class DnsServer(object):
                     print "Tempo esgotado"
              
              #Abre Threads do Slave
-            thread_eleicao = threading.Thread(target=self.aguarda_eleicao)
+            #thread_eleicao = threading.Thread(target=self.aguarda_eleicao)
             thread_consistencia = threading.Thread(target=self.consistencia)
-            thread_slave = threading.Thread(target=self.recvTH)
-
-            thread_slave.start()
-            thread_eleicao.start()
+            #thread_slave = threading.Thread(target=self.recvTH)
+            #self.consistencia()
+            #thread_slave.start()
+            #thread_eleicao.start()
             thread_consistencia.start()
 
                 
@@ -141,26 +146,25 @@ class DnsServer(object):
                          
     #Thread da consistencia. Onde fica atualizando os dados das replicas
     def consistencia(self):
-        #Socket responsavel pelo update
-        updateSock = socket.socket(socket.AF_INET,socket.SOCK_DGRAM) 
-        updateSock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        updateSock.bind(("", UPDATE_PORT))  
-        
-
         while True:
             if self.isMaster and self.leasing:
                 #Enviando dados para as Replicas
                 for rep_addr in self.dns_list:
-                    self.updateSock.sendto(str(self.dns_list), rep_addr)
-                    self.updateSock.sendto(str(self.stream_list), rep_addr)
+                    print "Atualizando listas do", rep_addr[0]
+                    self.internSock.sendto(str(self.dns_list), rep_addr)
+                    #time.sleep(3)
+                #    updateSock.sendto(str(self.stream_list), rep_addr)
                 self.leasing = False
+
+                
+
             #Slaves consistencia
             elif not self.isMaster:
                 #Se passar 10s sem atualizacoes, pede o Master
-                self.updateSock.settimeout(10.0)
+                self.internSock.settimeout(30.0)
                 try:
-                    data, a = self.updateSock.recvfrom(2048)
-
+                    data, a = self.internSock.recvfrom(2048)
+                    print "Atualizacao Recebida"
                     self.dns_list = self.convertData2List(data)
 
                     print "==== DNS LIST ==="
@@ -169,15 +173,12 @@ class DnsServer(object):
                     print "================="
                     print ""
 
-                    data, a = self.updateSock.recvfrom(2048)
-                    self.stream_list = self.convertData2List(data)                    
+                    #data, a = updateSock.recvfrom(2048)
+                    #self.stream_list = self.convertData2List(data)
 
                 except:
                     print "Requisitando Update do Master"
                     self.internSock.sendto("Update", self.master_addr)
-        
-        updateSock.close()
-              
                 
     #Thread do Master para receber mensagens e trata-las
     def recvTH(self):
@@ -185,15 +186,17 @@ class DnsServer(object):
             try:
                 data, rep = self.internSock.recvfrom(1024)
                 if data == 'Update':
-                    print "Requisitando Update de", rep[0]
-                    self.internSock.sendto(str(self.dns_list), rep)
-                    self.internSock.sendto(str(self.stream_list), rep)
+                    print "Requisitado Update", rep[0]
+                    self.leasing = True
+                    data = ''
                 elif data == 'Eleicao':
-                    print "Requisitando Eleicao", rep
+                    print "Requisitado Eleicao", rep
                     self.eleicao()
                     self.internSock.sendto("sou maior", rep)
+                    data = ''
                 elif data == 'Replic':
                     self.adiciona_replica(rep)
+                    data = ''
             except:
                 print ""
            
