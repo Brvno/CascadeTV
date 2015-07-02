@@ -97,10 +97,12 @@ class DnsServer(object):
              
              #Abre Threads do Slave
             thread_eleicao = threading.Thread(target=self.aguarda_eleicao)
+            thread_aguarda_msg = threading.Thread(target=self.aguarda_mensagem)
             thread_consistencia = threading.Thread(target=self.consistencia)
             #thread_slave = threading.Thread(target=self.recvTH)
             #self.consistencia()
             #thread_slave.start()
+            thread_aguarda_msg.start()
             thread_eleicao.start()
             thread_consistencia.start()
 
@@ -200,7 +202,8 @@ class DnsServer(object):
             except:
                 print ""
            
-                
+
+                    
     def eleicao(self):
         for i in range(0, len(self.dns_list) ):
             dns = i
@@ -222,20 +225,22 @@ class DnsServer(object):
         except:              
             #Ganho a eleicao
             self.isMaster = True
+            self.master_addr = self.dns_list(self.dns_id)
             #Aviso que ganhei para todos
             for dns in self.dns_list:
                self.internSock.sendto('novo_lider', dns)  
+
+    def aguarda_mensagem(self):
+        elec, addr = self.msgSock.recvfrom(1024)
+        if elec == "Eleicao":
+            print '-----------| Eleicao Requisitada |----------- '
+            #envia que eh maior. Utilizando internSock, por isso espera em outra porta
+            self.internSock.sendto('sou maior', (addr[0], REPLICA_DNS_PORT))
+            self.eleicao()  
            
-    def aguarda_eleicao(self):
-        self.msgSock.setblocking(0)
-        eleicao = ''
-        elec = ''
-        try:
-            elec, addr = self.msgSock.recvfrom(1024)
-        except:
-            eleicao = raw_input() 
-            print elec, eleicao
-        if eleicao == 'ELEICAO' or elec == 'ELEICAO':
+    def aguarda_eleicao(self):        
+        eleicao = raw_input() 
+        if eleicao == 'ELEICAO':
             print '-----------| Eleicao Requisitada |----------- '
             self.eleicao()
 
