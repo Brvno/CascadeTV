@@ -205,44 +205,62 @@ class DnsServer(object):
 
                     
     def eleicao(self):
-        for i in range(0, len(self.dns_list) ):
-            dns = i
+        print '== Comecando a eleicao =='
+        for index in range(0, int(self.dns_id)):
             #Envia para os maiores ID
-            if(dns < self.dns_id):
-                self.internSock.sendto('Eleicao', self.dns_list[dns])
+            print "IDS", index, self.dns_list[index]
+
+            print "Hey,", self.dns_list[index], ". Exijo uma nova eleicao"
+            self.internSock.sendto('Eleicao', (self.dns_list[index][0], MSG_PORT))
 
         #thread fica esperando o tempo acabar                    
         self.internSock.settimeout(4.0)               
         try:
             data, addr  = self.internSock.recvfrom(1024)
-            print data, addr
+            print "Modo Eleicao:", data
 
             string = data.split(':')     
-            if( string[0] == 'sou maior'):
-                data, addr  = self.internSock.recvfrom(1024)
-                if(data == 'novo_lider'):  
-                    self.master_addr = addr
+            if( data == 'sou maior'):
+                data, addr  = self.msgSock.recvfrom(1024)
+                lider = data.split(':')
+                if(lider[0] == 'novo_lider'):  
+                    lider = lider[1].replace("'", "")]
+                    self.master_addr = (lider, REPLICA_DNS_PORT)
+                    print "Lider nomeado", self.master_addr
+                    
+
         except:              
             #Ganho a eleicao
             self.isMaster = True
-            self.master_addr = self.dns_list(self.dns_id)
+            self.master_addr = self.dns_list[int(self.dns_id)]
             #Aviso que ganhei para todos
+            print ">>>>>>>>> Kneel before me. <<<<<<<<<<"
             for dns in self.dns_list:
-               self.internSock.sendto('novo_lider', dns)  
+                print "Avisando ", dns[0]
+                self.internSock.sendto('novo_lider:'+str(self.master_addr[0]), (dns[0], MSG_PORT))
 
     def aguarda_mensagem(self):
-        elec, addr = self.msgSock.recvfrom(1024)
-        if elec == "Eleicao":
-            print '-----------| Eleicao Requisitada |----------- '
-            #envia que eh maior. Utilizando internSock, por isso espera em outra porta
-            self.internSock.sendto('sou maior', (addr[0], REPLICA_DNS_PORT))
-            self.eleicao()  
+        while True:
+            elec, addr = self.msgSock.recvfrom(1024)
+            print elec
+            if elec == "Eleicao":
+                print '-----------| Eleicao Requisitada |----------- '
+                #envia que eh maior. Utilizando internSock, por isso espera em outra porta
+                self.internSock.sendto('sou maior', (addr[0], MSG_PORT))
+                self.eleicao()
+            else:
+                lider = elec.split(':')
+                if(lider[0] == 'novo_lider'):  
+                    lider = lider[1].replace("'", "")]
+                    self.master_addr = (lider, REPLICA_DNS_PORT)
+                    print "Lider nomeado", self.master_addr
            
     def aguarda_eleicao(self):        
-        eleicao = raw_input() 
-        if eleicao == 'ELEICAO':
-            print '-----------| Eleicao Requisitada |----------- '
-            self.eleicao()
+        while True:
+            eleicao = raw_input() 
+            if eleicao == 'ELEICAO':
+                print '-----------| Eleicao Requisitada |----------- '
+                self.eleicao()
 
     #Funcao para converter listas de tuplas que foram recebidas como strings
     
