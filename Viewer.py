@@ -1,9 +1,8 @@
 import socket
 import thread
 import time
-DNS_PORT = 10000
-DNS_addr = ('192.168.1.72', DNS_PORT)
-VIEWER_PORT = 9000
+
+DNS_addr = ('192.168.1.72', 10000)
 
 
 class Viewer(object):
@@ -12,7 +11,7 @@ class Viewer(object):
         self.strSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         
     def __init__(self):
-        self.stream_name = ''
+        self.stream_name = False
         self.strSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     
     #extrai ip de uma lista de dado um nome
@@ -40,19 +39,13 @@ class Viewer(object):
         stream_list, lixo = DNSSock.recvfrom(2048)
         print 'Lista de Streamers'
         print stream_list
-        
-        while True:
-
+        if self.stream_name == False:
             self.stream_name = raw_input("Qual o nome da stream? ")
 
-            if self.stream_name in stream_list:  
-                ## Pegando IP do streamer escolhido
-                stream_IP = self.retiraIP(stream_list,self.stream_name)
-                stream_addr = (stream_IP, 9000)
-                print stream_addr
-                break
-            else:
-                print "Nao tem feijao"
+        ## Pegando IP do streamer escolhido
+        stream_IP = self.retiraIP(stream_list,self.stream_name)
+        stream_addr = (stream_IP, 9000)
+        print stream_addr
 
         DNSSock.close()
         
