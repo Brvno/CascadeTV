@@ -157,12 +157,11 @@ class DnsServer(object):
             if self.isMaster and self.leasing:
                 #Enviando dados para as Replicas
                 for rep_addr in self.dns_list:
-					print "Atualizando listas do", rep_addr[0]
-					msg = str(self.stream_list)
-					self.internSock.sendto(str(self.dns_list), rep_addr)
-					self.internSock.sendto(msg, rep_addr)
+                    print "Atualizando listas do", rep_addr[0]
+                    #self.internSock.sendto(str(self.dns_list), rep_addr)
+                    self.internSock.sendto(str(self.stream_list), rep_addr)
                     #time.sleep(3)
-
+                #    updateSock.sendto(str(self.stream_list), rep_addr)
                 self.leasing = False
 
                 
@@ -182,9 +181,13 @@ class DnsServer(object):
                     print "================="
                     print ""
 
-                    data, a = updateSock.recvfrom(2048)
-					#TODO: Converter data para stream_list
-                    print data
+                    data, a = self.internSock.recvfrom(2048)
+                    self.steam_list = data
+                    print "==== Stream LIST ==="
+                    print self.stream_list
+                    print "================="
+                    print ""
+                
 
                 except:
                     print "Requisitando Update do Master"
@@ -272,8 +275,8 @@ class DnsServer(object):
                 print '-----------| Eleicao Requisitada |----------- '
                 self.eleicao()
 
+
     #Funcao para converter listas de tuplas que foram recebidas como strings
-    
     def convertData2List(self, data):
         data = data.replace("[","")
         data = data.replace("]","")
