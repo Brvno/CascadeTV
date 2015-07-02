@@ -96,12 +96,12 @@ class DnsServer(object):
                     print "Tempo esgotado"
              
              #Abre Threads do Slave
-            #thread_eleicao = threading.Thread(target=self.aguarda_eleicao)
+            thread_eleicao = threading.Thread(target=self.aguarda_eleicao)
             thread_consistencia = threading.Thread(target=self.consistencia)
             #thread_slave = threading.Thread(target=self.recvTH)
             #self.consistencia()
             #thread_slave.start()
-            #thread_eleicao.start()
+            thread_eleicao.start()
             thread_consistencia.start()
 
                 
@@ -205,7 +205,7 @@ class DnsServer(object):
         for i in range(0, len(self.dns_list) ):
             dns = i
             #Envia para os maiores ID
-            if(dns > self.dns_id):
+            if(dns < self.dns_id):
                 self.internSock.sendto('Eleicao', self.dns_list[dns])
 
         #thread fica esperando o tempo acabar                    
@@ -223,15 +223,24 @@ class DnsServer(object):
             #Ganho a eleicao
             self.isMaster = True
             #Aviso que ganhei para todos
-            for dns in dnslist:
+            for dns in self.dns_list:
                self.internSock.sendto('novo_lider', dns)  
            
     def aguarda_eleicao(self):
-        eleicao = raw_input() 
-        if(eleicao == 'ELEICAO'):
+        self.msgSock.setblocking(0)
+        eleicao = ''
+        elec = ''
+        try:
+            elec, addr = self.msgSock.recvfrom(1024)
+        except:
+            eleicao = raw_input() 
+            print elec, eleicao
+        if eleicao == 'ELEICAO' or elec == 'ELEICAO':
+            print '-----------| Eleicao Requisitada |----------- '
             self.eleicao()
 
     #Funcao para converter listas de tuplas que foram recebidas como strings
+    
     def convertData2List(self, data):
         data = data.replace("[","")
         data = data.replace("]","")
@@ -240,10 +249,16 @@ class DnsServer(object):
 
         lis = []
         for element in data:
-            lis.append(element)
+            element = element.replace('(','')
+            element = element.replace(')','')
+            element = element.split(',')
+            element[0] = element[0].replace('\'','') 
+            element[0] = element[0].replace(' ','') 
+            element[1] = int(element[1])
+            lis.append((element[0], element[1]))
 
         return lis
-            
+        
      #TODO algoritmo eleicao
      #eleicao vai ser uma thread que vai ficar rodando em todos os dns esperando a string "eleicao" ser digitada no teclado
     #def Eleicao(self)
@@ -299,4 +314,3 @@ if __name__ == "__main__":
         cascade = DnsServer()
 
     cascade.start()
-
