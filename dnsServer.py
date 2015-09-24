@@ -327,16 +327,16 @@ if __name__ == "__main__":
     except getopt.GetoptError as err:
         # print help information and exit:
         print str(err) # will print something like "option -a not recognized"
-        print "Criando DNS Master: dnsServer.py -m <IPv4>"
-        print "Criando DNS Slave: dnsServer.py"
+        print "DNS Slave: dnsServer.py -m <IPv4>"
+        print "DNS Master: dnsServer.py"
         sys.exit(2)
     
     for o, a in opts:
         if o == "-v":
             verbose = True
         elif o in ("-h", "--help"):
-            print "Criando DNS Master: dnsServer.py -m <IPv4>"
-            print "Criando DNS Slave: dnsServer.py"
+            print "DNS Slave: dnsServer.py -m <IPv4>"
+            print "DNS Master: dnsServer.py"
             sys.exit()
         elif o in ("-m", "--master"):
             cascade = DnsServer(str(args[0]))
