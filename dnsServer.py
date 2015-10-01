@@ -70,9 +70,9 @@ class DnsServer(object):
                     self.msgSock.sendto(str("tuntun"),(dns[0], MSG_PORT))
                     print "                     Pulse "+dns[0]
                 if not self.isMaster:
-                    self.msgSock.sendto(str("tuntun"),(self.master_addr, REPLICA_DNS_PORT))
-                    print "                     Pulse "+self.master_addr
-                time.sleep(2)
+                    self.msgSock.sendto(str("tuntun"),self.master_addr)
+                    print "                     Pulse "+self.master_addr[0]
+                time.sleep(3)
         elif typ == '1':
             while True:
                 # Se passar 10s de heartbeats, faz a verificacao
@@ -98,7 +98,7 @@ class DnsServer(object):
         else:
             if not typ[0] in self.dns_alives:
                 self.dns_alives.append(typ[0])            
-                print "Vivo:"+typ[0]+" em "+time.clock()
+                print "Vivo:"+typ[0]+" em "+str(time.clock())
                 if self.time_init == 0:
                     self.time_init = time.clock()
 
@@ -235,21 +235,24 @@ class DnsServer(object):
                 self.internSock.settimeout(30.0)
                 try:
                     data, a = self.internSock.recvfrom(2048)
-                    print "Atualizacao Recebida"
+                    #print "Atualizacao Recebida"
                     self.dns_list = self.convertData2List(data)
 
+                    time.sleep(10)
                     print "==== DNS LIST ==="
                     for i in self.dns_list:
                         print i
                     print "================="
                     print ""
+                    
 
                     data, a = updateSock.recvfrom(2048)
 					#TODO: Converter data para stream_list
                     self.stream_list = data
+                    
 
                 except:
-                    print "Requisitando Update do Master"
+                    #print "Requisitando Update do Master"
                     self.internSock.sendto("Update", self.master_addr)
                 
     #Thread do Master para receber mensagens e trata-las

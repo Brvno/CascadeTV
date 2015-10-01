@@ -4,8 +4,8 @@ import re
 
 from PyQt4 import QtGui,QtCore
 
-FPS = 500
-BUFFER_PATH = os.path.join(os.getcwd(),"buffer")
+FPS = 60
+BUFFER_PATH = os.path.join(os.getcwd(),"buffer/")
 
 def atoi(text):
     return int(text) if text.isdigit() else text
@@ -27,13 +27,14 @@ class CascadeTV(QtGui.QMainWindow):
         # Carrega imagem do BUFFER
         self.buffer = []
         for each in os.listdir(BUFFER_PATH):
-            
+
             selFile = os.path.join(BUFFER_PATH, each)
+            print selFile
             if os.path.isfile(selFile) and selFile.endswith('png'):
-                self.buffer.append(each)
+                self.buffer.append(selFile)
 
         self.buffer.sort(key=natural_keys)
-        print self.buffer
+        print BUFFER_PATH
         # Contador 
         self.count = 0
 
@@ -48,17 +49,18 @@ class CascadeTV(QtGui.QMainWindow):
         screen = QtGui.QDesktopWidget().screenGeometry(self)
 
         self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
-        self.label = QtGui.QLabel()
+        self.label = QtGui.QLabel("yoo")
         self.label.setAlignment(QtCore.Qt.AlignCenter)
         self.setCentralWidget(self.label)
 
         # Pegando proxima imagem do BUFFER
         self.nextImage()  
         
+        
     # Desenha na tela
     def nextImage(self):
         if self.buffer:
-            if self.count == len(self.buffer):
+            if self.count >= len(self.buffer):
                 self.count = 0
 
             image = QtGui.QImage(self.buffer[self.count])
