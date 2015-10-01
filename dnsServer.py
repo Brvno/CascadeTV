@@ -68,21 +68,22 @@ class DnsServer(object):
                 self.msgSock.sendto(str("tuntun"),(dns[0], MSG_PORT))
             time.sleep(5)
         elif type == '1':
-            # Se passar 7s de heartbeats, faz a verificação
-            if time.clock() - TIME_HS > 7.0:
-                # Se algum dns não tiver respondido
-                if len(self.dns_alives) != len(self.dns_list):
-                    for dns in self.dns_list():
-                        # dns nao respondeu
-                        if dns not in self.dns_alives:
-                            if dns[0] != self.master_addr[0]:
-                                self.dns_list.remove(dns)
-                                print "Removido da Lista: " + dns
-                            else:
-                                print "Master Morreu"
-                                self.eleicao()
-                self.dns_alives = []
-                TIME_HS = time.clock()
+            while True:
+               # Se passar 7s de heartbeats, faz a verificação
+               if time.clock() - TIME_HS > 7.0:
+                   # Se algum dns não tiver respondido
+                   if len(self.dns_alives) != len(self.dns_list):
+                       for dns in self.dns_list():
+                           # dns nao respondeu
+                           if dns not in self.dns_alives:
+                               if dns[0] != self.master_addr[0]:
+                                   self.dns_list.remove(dns)
+                                   print "Removido da Lista: " + dns
+                               else:
+                                   print "Master Morreu"
+                                   self.eleicao()
+                   self.dns_alives = []
+                   TIME_HS = time.clock()
         # Adiciona dns vivo
         else:
             self.dns_alives.append(type)
