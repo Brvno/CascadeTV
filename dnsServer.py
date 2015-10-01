@@ -11,6 +11,7 @@ REPLICA_DNS_PORT = 13005
 MSG_PORT = 13013
 DNS_PORT = 10000
 MAX_ID = 666
+TIME_HS= 0
 
 #TODO: Adicionar DNS Master na lista
 
@@ -24,6 +25,7 @@ class DnsServer(object):
         self.stream_list = {}
         self.dns_list = []
         self.dns_id = MAX_ID
+        self.dns_alives = []
         
         #Socket para funcionalidades do DNS
         self.dnsSock = socket.socket(socket.AF_INET,socket.SOCK_DGRAM) 
@@ -54,12 +56,48 @@ class DnsServer(object):
         else:
             self.master_addr = (master_IP, REPLICA_DNS_PORT)
             self.isMaster = False
-             
+    
+
+    #Envia a cada 5s que esta vivo. Caso algum DNS não esteja vivo, ele foi desconectado. Se um lider cair, chamar eleicão
+    # type: 0 Envia para os outros
+    # type: 1 Verifica lista
+    # type: addr Adiciona na lista
+    def heartbeats(self, type = '0'):
+        if type == '0':
+            for dns in self.dns_list:
+                self.msgSock.sendto(str("tuntun"),(dns[0], MSG_PORT))
+            time.sleep(5)
+        elif type == '1':
+            # Se passar 7s de heartbeats, faz a verificação
+            if time.clock() - TIME_HS > 7.0:
+                # Se algum dns não tiver respondido
+                if len(self.dns_alives) != len(self.dns_list):
+                    for dns in self.dns_list():
+                        # dns nao respondeu
+                        if dns not in self.dns_alives:
+                            if dns[0] != self.master_addr[0]:
+                                self.dns_list.remove(dns)
+                                print "Removido da Lista: " + dns
+                            else:
+                                print "Master Morreu"
+                                self.eleicao()
+                TIME_HS = time.clock()
+        # Adiciona dns vivo
+        else:
+            self.dns_alives.append(type)
+            if TIME_HS == 0:
+                TIME_HS = time.clock()
+
 
     # Comeca DNS Server
     def start(self):
         print "Loading..."
-                
+
+        # Threads Gerais
+        thread_checkPuldr = threading.Thread(target=self.heartbeats, args=('1', ))
+        thread_sendPulse = threading.Thread(target=self.heartbeats)
+                     
+
         if(self.isMaster):
             print "Cascade TV Master DNS Server running..."
             #Abre Threads do Master
@@ -70,6 +108,8 @@ class DnsServer(object):
             thread_master.start()
             thread_consistencia.start()
             thread_funcionalidade.start()
+            thread_sendPulse.start()
+            thread_checkPulse.start()   
 
             while True:
                 time.sleep(10)
@@ -109,6 +149,8 @@ class DnsServer(object):
             thread_aguarda_msg.start()
             thread_eleicao.start()
             thread_consistencia.start()
+            thread_sendPulse.start()
+            thread_checkPulse.start()   
 
                 
     #envia a lista das streams para os viewers
@@ -258,12 +300,15 @@ class DnsServer(object):
                 #envia que eh maior. Utilizando internSock, por isso espera em outra porta
                 self.internSock.sendto('sou maior', (addr[0], REPLICA_DNS_PORT))
                 self.eleicao()
-            else:
+            elif elec == "sou maior":
                 lider = elec.split(':')
                 if(lider[0] == 'novo_lider'):  
                     lider = lider[1].replace("'", "")
                     self.master_addr = (lider, REPLICA_DNS_PORT)
                     print "Lider nomeado", self.master_addr
+            elif elec == "tuntun":
+                self.heartbeats(addr)
+
            
     def aguarda_eleicao(self):        
         while True:
