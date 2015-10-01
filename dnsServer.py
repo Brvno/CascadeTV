@@ -11,7 +11,7 @@ REPLICA_DNS_PORT = 13005
 MSG_PORT = 13013
 DNS_PORT = 10000
 MAX_ID = 666
-TIME_HS= 0
+
 
 #TODO: Adicionar DNS Master na lista
 
@@ -26,6 +26,7 @@ class DnsServer(object):
         self.dns_list = []
         self.dns_id = MAX_ID
         self.dns_alives = []
+        self.time_init = 0
         
         #Socket para funcionalidades do DNS
         self.dnsSock = socket.socket(socket.AF_INET,socket.SOCK_DGRAM) 
@@ -58,37 +59,48 @@ class DnsServer(object):
             self.isMaster = False
     
 
-    #Envia a cada 5s que esta vivo. Caso algum DNS não esteja vivo, ele foi desconectado. Se um lider cair, chamar eleicão
+    # Envia a cada 5s que esta vivo. Caso algum DNS nao esteja vivo, ele foi desconectado. Se um lider cair, chamar eleicao
     # type: 0 Envia para os outros
     # type: 1 Verifica lista
     # type: addr Adiciona na lista
-    def heartbeats(self, type = '0'):
-        if type == '0':
-            for dns in self.dns_list:
-                self.msgSock.sendto(str("tuntun"),(dns[0], MSG_PORT))
-            time.sleep(5)
-        elif type == '1':
+    def heartbeats(self, typ = '0'):    
+        if typ == '0':
             while True:
-               # Se passar 7s de heartbeats, faz a verificação
-               if time.clock() - TIME_HS > 7.0:
-                   # Se algum dns não tiver respondido
-                   if len(self.dns_alives) != len(self.dns_list):
-                       for dns in self.dns_list():
-                           # dns nao respondeu
-                           if dns not in self.dns_alives:
-                               if dns[0] != self.master_addr[0]:
-                                   self.dns_list.remove(dns)
-                                   print "Removido da Lista: " + dns
-                               else:
-                                   print "Master Morreu"
-                                   self.eleicao()
-                   self.dns_alives = []
-                   TIME_HS = time.clock()
+                for dns in self.dns_list: 
+                    self.msgSock.sendto(str("tuntun"),(dns[0], MSG_PORT))
+                    print "                     Pulse "+dns[0]
+                if not self.isMaster:
+                    self.msgSock.sendto(str("tuntun"),(self.master_addr, REPLICA_DNS_PORT))
+                    print "                     Pulse "+self.master_addr
+                time.sleep(2)
+        elif typ == '1':
+            while True:
+                # Se passar 10s de heartbeats, faz a verificacao
+                #print "Timer: " + str(time.clock() - self.time_init) 
+                time.sleep(3)
+               
+                if (time.clock() - self.time_init) > 10.0:
+                    # Se algum dns nao tiver respondido
+                    if len(self.dns_alives) != len(self.dns_list):
+                        for dns in self.dns_list:
+                            # dns nao respondeu
+                            if dns not in self.dns_alives:
+                                if dns[0] != self.master_addr[0]:
+                                    self.dns_list.remove(dns)
+                                    print "Removido da Lista: "+ dns[0]+" em "+str(time.clock())
+                                else:
+                                    print "Master Morreu"
+                                    self.eleicao()
+                       
+                    self.dns_alives = []
+                    self.time_init = time.clock()
         # Adiciona dns vivo
         else:
-            self.dns_alives.append(type)
-            if TIME_HS == 0:
-                TIME_HS = time.clock()
+            if not typ[0] in self.dns_alives:
+                self.dns_alives.append(typ[0])            
+                print "Vivo:"+typ[0]+" em "+time.clock()
+                if self.time_init == 0:
+                    self.time_init = time.clock()
 
 
     # Comeca DNS Server
@@ -96,7 +108,7 @@ class DnsServer(object):
         print "Loading..."
 
         # Threads Gerais
-        thread_checkPuldr = threading.Thread(target=self.heartbeats, args=('1', ))
+        thread_checkPulse = threading.Thread(target=self.heartbeats, args=('1', ))
         thread_sendPulse = threading.Thread(target=self.heartbeats)
                      
 
@@ -114,15 +126,21 @@ class DnsServer(object):
             thread_checkPulse.start()   
 
             while True:
-                time.sleep(10)
+                time.sleep(3)
                
                 print "==== DNS LIST ==="
                 for i in self.dns_list:
                     print i[0]
                 print "================="
                 print ""
-
-            
+                
+                print "     CLOCK: "+str(time.clock()-self.time_init)
+                print "==== DNS Alives ==="
+                for i in self.dns_alives:
+                    print i
+                print "================="
+                print ""
+    
         else:
             #Avisa o Master que virou um slave. Recebe Seu ID como retorno
             for i in range(1,4):   
@@ -201,7 +219,7 @@ class DnsServer(object):
             if self.isMaster and self.leasing:
                 #Enviando dados para as Replicas
                 for rep_addr in self.dns_list:
-					print "Atualizando listas do", rep_addr[0]
+					#   print "Atualizando listas do", rep_addr[0]
 					msg = str(self.stream_list)
 					self.internSock.sendto(str(self.dns_list), rep_addr)
 					self.internSock.sendto(msg, rep_addr)
@@ -240,17 +258,22 @@ class DnsServer(object):
             try:
                 data, rep = self.internSock.recvfrom(1024)
                 if data == 'Update':
-                    print "Requisitado Update", rep[0]
+                    #print "Requisitado Update", rep[0]
                     self.leasing = True
                     data = ''
                 elif data == 'Eleicao':
-                    print "Requisitado Eleicao", rep
+                    #print "Requisitado Eleicao", rep
                     self.eleicao()
                     self.internSock.sendto("sou maior", rep)
                     data = ''
                 elif data == 'Replic':
                     self.adiciona_replica(rep)
+                    self.heartbeats(rep)
                     data = ''
+                elif data == 'tuntun':
+                    self.heartbeats(rep)
+                    data = ''
+                     
             except:
                 print ""
            
