@@ -81,6 +81,7 @@ class DnsServer(object):
                             else:
                                 print "Master Morreu"
                                 self.eleicao()
+                self.dns_alives = []
                 TIME_HS = time.clock()
         # Adiciona dns vivo
         else:
